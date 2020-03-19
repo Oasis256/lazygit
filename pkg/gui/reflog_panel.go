@@ -49,9 +49,19 @@ func (gui *Gui) handleReflogCommitSelect(g *gocui.Gui, v *gocui.View) error {
 }
 
 func (gui *Gui) refreshReflogCommits() error {
+	previousLength := len(gui.State.ReflogCommits)
 	commits, err := gui.GitCommand.GetReflogCommits()
 	if err != nil {
 		return gui.createErrorPanel(gui.g, err.Error())
+	}
+
+	if len(commits) > previousLength {
+		if gui.State.Undoing {
+			gui.State.UndoReflogIdx += len(commits) - previousLength
+			gui.State.Undoing = false
+		} else {
+			gui.State.UndoReflogIdx = 0
+		}
 	}
 
 	gui.State.ReflogCommits = commits
@@ -126,7 +136,7 @@ func (gui *Gui) reflogUndo(g *gocui.Gui, v *gocui.View) error {
 		},
 	}
 
-	for i, reflogCommit := range gui.State.ReflogCommits {
+	for i, reflogCommit := range gui.State.ReflogCommits[gui.State.UndoReflogIdx:] {
 		for _, action := range reflogActions {
 			re := regexp.MustCompile(action.regexStr)
 			match := re.FindStringSubmatch(reflogCommit.Name)
@@ -151,6 +161,7 @@ func (gui *Gui) reflogUndo(g *gocui.Gui, v *gocui.View) error {
 	return nil
 }
 
+// only to be used in the undo flow for now
 func (gui *Gui) handleHardResetWithAutoStash(commitSha string) error {
 	// if we have any modified tracked files we need to ask the user if they want us to stash for them
 	dirtyWorkingTree := false
@@ -167,6 +178,7 @@ func (gui *Gui) handleHardResetWithAutoStash(commitSha string) error {
 			if err := gui.GitCommand.StashSave(gui.Tr.SLocalize("StashPrefix") + commitSha); err != nil {
 				return gui.createErrorPanel(g, err.Error())
 			}
+			gui.State.Undoing = true // TODO: see if this should be moved somewhere else
 			if err := gui.resetToRef(commitSha, "hard"); err != nil {
 				return gui.createErrorPanel(g, err.Error())
 			}
@@ -181,9 +193,9 @@ func (gui *Gui) handleHardResetWithAutoStash(commitSha string) error {
 		}, nil)
 	}
 
+	gui.State.Undoing = true
 	if err := gui.resetToRef(commitSha, "hard"); err != nil {
 		return gui.createErrorPanel(gui.g, err.Error())
 	}
-
 	return gui.refreshSidePanels(gui.g)
 }

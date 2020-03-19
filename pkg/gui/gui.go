@@ -214,6 +214,8 @@ type guiState struct {
 	PrevMainWidth        int
 	PrevMainHeight       int
 	OldInformation       string
+	UndoReflogIdx        int
+	Undoing              bool
 }
 
 // for now the split view will always be on
