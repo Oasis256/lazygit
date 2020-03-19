@@ -56,6 +56,8 @@ func (gui *Gui) refreshReflogCommits() error {
 	}
 
 	if len(commits) > previousLength {
+		gui.Log.Warn("reflog length changed by %d", len(commits)-previousLength)
+		gui.Log.Warn(gui.State.Undoing)
 		if gui.State.Undoing {
 			gui.State.UndoReflogIdx += len(commits) - previousLength
 		} else {
