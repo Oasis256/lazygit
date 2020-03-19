@@ -58,7 +58,6 @@ func (gui *Gui) refreshReflogCommits() error {
 	if len(commits) > previousLength {
 		if gui.State.Undoing {
 			gui.State.UndoReflogIdx += len(commits) - previousLength
-			gui.State.Undoing = false
 		} else {
 			gui.State.UndoReflogIdx = 0
 		}
@@ -125,6 +124,9 @@ func (gui *Gui) reflogUndo(g *gocui.Gui, v *gocui.View) error {
 				if len(match) <= 1 {
 					return false, nil
 				}
+				gui.State.Undoing = true
+				defer func() { gui.State.Undoing = false }()
+
 				return true, gui.handleCheckoutRef(match[1])
 			},
 		},
@@ -172,13 +174,15 @@ func (gui *Gui) handleHardResetWithAutoStash(commitSha string) error {
 		}
 	}
 
+	gui.State.Undoing = true
+	defer func() { gui.State.Undoing = false }()
+
 	if dirtyWorkingTree {
 		// offer to autostash changes
 		return gui.createConfirmationPanel(gui.g, gui.getBranchesView(), true, gui.Tr.SLocalize("AutoStashTitle"), gui.Tr.SLocalize("AutoStashPrompt"), func(g *gocui.Gui, v *gocui.View) error {
 			if err := gui.GitCommand.StashSave(gui.Tr.SLocalize("StashPrefix") + commitSha); err != nil {
 				return gui.createErrorPanel(g, err.Error())
 			}
-			gui.State.Undoing = true // TODO: see if this should be moved somewhere else
 			if err := gui.resetToRef(commitSha, "hard"); err != nil {
 				return gui.createErrorPanel(g, err.Error())
 			}
@@ -193,7 +197,6 @@ func (gui *Gui) handleHardResetWithAutoStash(commitSha string) error {
 		}, nil)
 	}
 
-	gui.State.Undoing = true
 	if err := gui.resetToRef(commitSha, "hard"); err != nil {
 		return gui.createErrorPanel(gui.g, err.Error())
 	}
