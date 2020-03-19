@@ -60,6 +60,7 @@ func (gui *Gui) refreshReflogCommits() error {
 		gui.Log.Warn(gui.State.Undoing)
 		if gui.State.Undoing {
 			gui.State.UndoReflogIdx += len(commits) - previousLength
+			gui.State.Undoing = false
 		} else {
 			gui.State.UndoReflogIdx = 0
 		}
@@ -127,7 +128,6 @@ func (gui *Gui) reflogUndo(g *gocui.Gui, v *gocui.View) error {
 					return false, nil
 				}
 				gui.State.Undoing = true
-				defer func() { gui.State.Undoing = false }()
 
 				return true, gui.handleCheckoutRef(match[1])
 			},
@@ -177,7 +177,6 @@ func (gui *Gui) handleHardResetWithAutoStash(commitSha string) error {
 	}
 
 	gui.State.Undoing = true
-	defer func() { gui.State.Undoing = false }()
 
 	if dirtyWorkingTree {
 		// offer to autostash changes
